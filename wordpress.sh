@@ -54,7 +54,10 @@ instalar_dependencias() {
 configurar_base_datos() {
     DB_NAME=$(dialog --inputbox "Introduce el nombre de la base de datos:" 8 40 3>&1 1>&2 2>&3)
     DB_USER=$(dialog --inputbox "Introduce el nombre de usuario de la base de datos:" 8 40 3>&1 1>&2 2>&3)
-
+if [[ ! "$DB_NAME" =~ ^[a-zA-Z0-9_]+$ ]]; then
+    dialog --msgbox "El nombre de la base de datos solo puede contener letras, números y guiones bajos." 6 50
+    exit 1
+fi
     # Solicitar la contraseña dos veces
     while true; do
         DB_PASS=$(dialog --passwordbox "Introduce la contraseña del usuario:" 8 40 3>&1 1>&2 2>&3)
