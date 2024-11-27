@@ -13,6 +13,43 @@ DB_PASS=""
 DOMAIN=""
 ADMIN_EMAIL=""
 MAUTIC_DIR="/var/www/mautic"
+DB_SYSTEM=""
+
+# Función para detectar MariaDB o MySQL
+detect_database_system() {
+    if command -v mysql >/dev/null 2>&1; then
+        DB_SYSTEM="mysql"
+        echo "Se detectó MySQL instalado."
+    elif command -v mariadb >/dev/null 2>&1; then
+        DB_SYSTEM="mariadb"
+        echo "Se detectó MariaDB instalado."
+    else
+        DB_SYSTEM=$(dialog --menu "No se detectó un sistema de bases de datos. ¿Cuál deseas instalar?" 15 50 2 \
+            "mysql" "Instalar MySQL" \
+            "mariadb" "Instalar MariaDB" \
+            3>&1 1>&2 2>&3 3>&-)
+        
+        if [ $? != 0 ]; then
+            echo "Instalación cancelada por el usuario."
+            exit 1
+        fi
+    fi
+}
+
+# Instalar el sistema de base de datos seleccionado
+install_database_system() {
+    if [ "$DB_SYSTEM" == "mysql" ]; then
+        echo "Instalando MySQL..."
+        apt update && apt install -y mysql-server
+        systemctl enable mysql
+        systemctl start mysql
+    elif [ "$DB_SYSTEM" == "mariadb" ]; then
+        echo "Instalando MariaDB..."
+        apt update && apt install -y mariadb-server
+        systemctl enable mariadb
+        systemctl start mariadb
+    fi
+}
 
 # Función para obtener datos del usuario con dialog
 get_parameters() {
@@ -32,27 +69,33 @@ get_parameters() {
     [ $? != 0 ] && echo "Cancelado." && exit 1
 }
 
+# Configurar base de datos
+configure_database() {
+    echo "Configurando base de datos $DB_SYSTEM..."
+    if [ "$DB_SYSTEM" == "mysql" ] || [ "$DB_SYSTEM" == "mariadb" ]; then
+        mysql -e "CREATE DATABASE $DB_NAME;"
+        mysql -e "CREATE USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';"
+        mysql -e "GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost';"
+        mysql -e "FLUSH PRIVILEGES;"
+    else
+        echo "Error: Sistema de base de datos no reconocido."
+        exit 1
+    fi
+}
+
 # Instalar dependencias
 install_dependencies() {
     echo "Instalando dependencias necesarias..."
     apt update && apt upgrade -y
-    apt install -y apache2 mysql-server php libapache2-mod-php unzip dialog \
+    apt install -y apache2 php libapache2-mod-php unzip dialog \
         php-curl php-mbstring php-zip php-intl php-xml php-imap php-gd certbot python3-certbot-apache
-}
-
-# Configurar MySQL
-configure_mysql() {
-    echo "Configurando base de datos MySQL..."
-    mysql -e "CREATE DATABASE $DB_NAME;"
-    mysql -e "CREATE USER '$DB_USER'@'localhost' IDENTIFIED BY '$DB_PASS';"
-    mysql -e "GRANT ALL PRIVILEGES ON $DB_NAME.* TO '$DB_USER'@'localhost';"
-    mysql -e "FLUSH PRIVILEGES;"
 }
 
 # Descargar e instalar Mautic
 install_mautic() {
-    echo "Descargando e instalando Mautic..."
-    wget https://www.mautic.org/download/latest -O mautic.zip
+    echo "Descargando e instalando Mautic versión 5.1.1..."
+    wget https://github.com/mautic/mautic/releases/download/5.1.1/5.1.1.zip -O mautic.zip
+    mkdir -p $MAUTIC_DIR
     unzip mautic.zip -d $MAUTIC_DIR
     chown -R www-data:www-data $MAUTIC_DIR
     chmod -R 755 $MAUTIC_DIR
@@ -61,7 +104,11 @@ install_mautic() {
 
 # Configurar Apache
 configure_apache() {
-    echo "Configurando Apache..."
+    echo "Eliminando configuración predeterminada (000-default.conf)..."
+    rm -f /etc/apache2/sites-enabled/000-default.conf
+    rm -f /etc/apache2/sites-available/000-default.conf
+
+    echo "Configurando Apache para Mautic..."
     cat <<EOF >/etc/apache2/sites-available/mautic.conf
 <VirtualHost *:80>
     ServerName $DOMAIN
@@ -105,9 +152,13 @@ run_mautic_installer() {
 
 # Ejecución principal
 main() {
+    detect_database_system
+    if [ -z "$DB_SYSTEM" ]; then
+        install_database_system
+    fi
     get_parameters
     install_dependencies
-    configure_mysql
+    configure_database
     install_mautic
     configure_apache
     configure_ssl
