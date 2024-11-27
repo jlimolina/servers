@@ -11,6 +11,7 @@ DB_USER=""
 DB_NAME=""
 DB_PASS=""
 DOMAIN=""
+ADMIN_EMAIL=""
 MAUTIC_DIR="/var/www/mautic"
 
 # Función para obtener datos del usuario con dialog
@@ -25,6 +26,9 @@ get_parameters() {
     [ $? != 0 ] && echo "Cancelado." && exit 1
 
     DOMAIN=$(dialog --inputbox "Introduce el dominio donde estará Mautic (ej. mautic.midominio.com):" 10 50 3>&1 1>&2 2>&3 3>&-)
+    [ $? != 0 ] && echo "Cancelado." && exit 1
+
+    ADMIN_EMAIL=$(dialog --inputbox "Introduce el correo electrónico para los certificados SSL:" 10 50 3>&1 1>&2 2>&3 3>&-)
     [ $? != 0 ] && echo "Cancelado." && exit 1
 }
 
@@ -80,7 +84,7 @@ EOF
 # Configurar SSL con Let's Encrypt
 configure_ssl() {
     echo "Instalando certificado SSL con Let's Encrypt..."
-    certbot --apache -d $DOMAIN --non-interactive --agree-tos -m admin@$DOMAIN
+    certbot --apache -d $DOMAIN --non-interactive --agree-tos -m $ADMIN_EMAIL
 }
 
 # Configurar tareas programadas
