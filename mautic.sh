@@ -88,7 +88,7 @@ install_dependencies() {
     echo "Instalando dependencias necesarias..."
     apt update && apt upgrade -y
     apt install -y apache2 php libapache2-mod-php unzip dialog \
-        php-curl php-mbstring php-zip php-intl php-xml php-imap php-gd certbot python3-certbot-apache
+        php-curl php-mbstring php-zip php-intl php-xml php-imap php-gd certbot python3-certbot-apache php-mysql
 }
 
 # Descargar e instalar Mautic
@@ -127,6 +127,8 @@ EOF
     a2enmod rewrite
     systemctl restart apache2
 }
+chown -R www-data:www-data /var/www/mautic
+chmod -R 755 /var/www/mautic
 
 # Configurar SSL con Let's Encrypt
 configure_ssl() {
