@@ -44,6 +44,7 @@ mostrar_menu_instalacion() {
             "Matomo" "" \
             "PhpBB"  "" \
             "Mastodon" "" \
+            "Mautic" "" \
             "Regresar" "" 3>&1 1>&2 2>&3)
 
         case $? in
@@ -67,6 +68,9 @@ mostrar_menu_instalacion() {
                     "Mastodon")
                         bash mastodon.sh 
                         ;;   
+                    "Mautic")
+                        bash mautic.sh
+                        ;;
                     "Regresar")
                         break
                         ;;
